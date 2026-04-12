@@ -1,0 +1,4 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Sat Apr 11 14:43:47 IST 2026
+@default-central-https\://repo.maven.apache.org/maven2/.lastUpdated=1775898827649
+https\://repo.maven.apache.org/maven2/.error=Could not transfer artifact org.springframework.boot\:spring-boot-starter-parent\:pom\:3.5.12 from/to central (https\://repo.maven.apache.org/maven2)\: C\:\\SmartTask\\smarttask-api\\smarttask-api\\.m2\\org\\springframework\\boot\\spring-boot-starter-parent\\3.5.12\\spring-boot-starter-parent-3.5.12.pom.5536416227706273358.tmp.1209459807149221026.tmp
