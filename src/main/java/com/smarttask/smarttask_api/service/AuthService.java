@@ -5,8 +5,11 @@ import com.smarttask.smarttask_api.model.UserDetails;
 import com.smarttask.smarttask_api.repository.LoginRepository;
 import com.smarttask.smarttask_api.repository.UserDetailsRepository;
 import com.smarttask.smarttask_api.security.JwtUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,6 +23,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @Service
 public class AuthService {
 
+    private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
     private static final long OTP_VALIDITY_MILLIS = 10 * 60 * 1000;
 
     private record PasswordResetOtp(String otp, long expiresAt) {
@@ -45,6 +49,9 @@ public class AuthService {
 
     @Value("${spring.mail.username:}")
     private String mailFrom;
+
+    @Value("${spring.mail.password:}")
+    private String mailPassword;
 
     private final Map<String, PasswordResetOtp> passwordResetOtps = new ConcurrentHashMap<>();
 
@@ -115,6 +122,18 @@ public class AuthService {
             return response;
         }
 
+        if (mailFrom == null || mailFrom.isBlank()) {
+            response.put("success", false);
+            response.put("message", "SMTP username is not configured.");
+            return response;
+        }
+
+        if (mailPassword == null || mailPassword.isBlank()) {
+            response.put("success", false);
+            response.put("message", "SMTP password is not configured. Set SMARTTASK_MAIL_PASSWORD and restart the backend.");
+            return response;
+        }
+
         String otp = String.format("%06d", ThreadLocalRandom.current().nextInt(100000, 1000000));
         passwordResetOtps.put(username, new PasswordResetOtp(otp, System.currentTimeMillis() + OTP_VALIDITY_MILLIS));
 
@@ -129,7 +148,18 @@ public class AuthService {
                         + "Your SmartTask password reset OTP is: " + otp + "\n"
                         + "This OTP is valid for 10 minutes.\n\n"
                         + "If you did not request this, please ignore this email.");
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+        } catch (MailException ex) {
+            passwordResetOtps.remove(username);
+            logger.error("Failed to send password reset OTP email for user {}", username, ex);
+            String rootCause = ex.getMostSpecificCause() != null
+                    ? ex.getMostSpecificCause().getMessage()
+                    : ex.getMessage();
+            response.put("success", false);
+            response.put("message", "Unable to send OTP email: " + rootCause);
+            return response;
+        }
 
         activityLogService.log(username, "PASSWORD_RESET_OTP_SENT", "Password reset OTP sent to registered email");
 
